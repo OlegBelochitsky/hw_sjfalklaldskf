@@ -3,6 +3,8 @@
 #include<string.h> 
 #include<stdlib.h>
 #include<sys/wait.h>
+#include <sys/stat.h> 
+#include <fcntl.h>
 
 #define TRUE 1
 #define INPUT_BUFFER_SIZE 1024
@@ -43,7 +45,46 @@ prompt() {
     printf("%s", myPrompt);
 }
 
+static int 
+execute_command(char** args){
+    if ((strcmp(args[0],"cat")==0) 
+        && (strcmp(args[1],">")==0)){
+        int new_file = open(args[2], O_CREAT | O_WRONLY | O_TRUNC ,0644);
+        dup2(new_file ,STDOUT_FILENO);
+        close(new_file);
 
+        char * const arr[2] = {args[0], 0};
+        if (execvp(args[0],arr) > 0){
+            char msg[80];
+            sprintf(msg,"cammnad %s failed\n", args[0]);
+            perror(msg);
+            exit(1);
+        }
+    }
+    else if(
+            (strcmp(args[0],"ls")==0)
+            || (strcmp(args[0],"pwd")==0)
+            || (strcmp(args[0],"cat")==0)
+            || (strcmp(args[0],"nano")==0)
+            || (strcmp(args[0],"wc")==0)
+            || (strcmp(args[0],"cp")==0)
+            || (strcmp(args[0],"whoami")==0)
+            || (strcmp(args[0],"grep")==0)
+            || (strcmp(args[0],"man")==0)
+            || (strcmp(args[0],"tree")==0)
+      ){
+
+        if (execvp(args[0], args) > 0){
+            char msg[80];
+            sprintf(msg,"cammnad %s failed\n", args[0]);
+            perror(msg);
+            exit(1);
+        }
+    }else{
+        printf("%s is not supported\n", args[0]);
+        exit(1);
+    }
+}
 
 static int 
 parse_input_and_exec(char* input)
@@ -105,9 +146,10 @@ parse_input_and_exec(char* input)
                 close(pipefds[i][1]);
             }
             
-            if (execvp(args[0], args) > 0){
-                exit(1);
-            }
+            execute_command(args);
+            /* if (execvp(args[0], args) > 0){ */
+            /*     exit(1); */
+            /* } */
         }
 
 
@@ -129,6 +171,7 @@ main()
     int ret;
     char input_buffer[ INPUT_BUFFER_SIZE ];
     char *ch = "\n";
+    char *exit= "exit\n";
     while(TRUE){
         prompt();
         fgets(input_buffer, sizeof(input_buffer), stdin);
@@ -137,10 +180,28 @@ main()
         {
             continue;
         }
+        if(strcmp(input_buffer, exit)==0)
+        {
+            break;
+        }
+        if(input_buffer[0] == 'c' && input_buffer[1] == 'd'){
+            char* args[MAX_ARG_NUM];
+            int m=1;
+            args[0]=strtok(input_buffer," ");       
+            while((args[m]=strtok(NULL," "))!=NULL)
+                m++;
+            args[m]=NULL;
+            char *h="/home";   
+            if(args[1]==NULL)
+                    chdir(h);
+            else if ((strcmp(args[1], "~")==0) || (strcmp(args[1], "~/")==0))
+                    chdir(h);
+            else if(chdir(args[1])<0)
+                printf("bash: cd: %s: No such file or directory\n", args[1]);
+            continue;
+        }
 
         ret = parse_input_and_exec(input_buffer);
-        /* if (ret) */
-        /*     printf("exit status %d\n",ret); */
     }
     return 0;
 }
