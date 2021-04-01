@@ -8,35 +8,40 @@
 #define INPUT_BUFFER_SIZE 1024
 #define MAX_NUM_OF_COMMANDS 100
 #define MAX_PROMT_SIZE 1024
+#define MAX_USER_SIZE 16
 #define MAX_CWD_SIZE 1024
 #define MAX_ARG_NUM 64
 #define MAX_NUMBER_OF_PIPES 16
+#define MAX_USER_SIZE 16
 
 static void prompt();
 static int parse_input_and_exec(char*);
-static void swap_fd(int*, int*);
 
 char *COMMANDS[100];
 int PIPE_COUNT=0;
 
 static void 
 prompt() {
+    char user[MAX_USER_SIZE]; 
     char cwd[MAX_CWD_SIZE];
     char myPrompt[MAX_PROMT_SIZE];
+    if(getlogin_r(user,sizeof(user))==0){
+        strcpy(myPrompt, user);
+        strcat(myPrompt, ": ");
+    }else{
+        perror("getlogin_r() error\n");
+    }
+
     if (getcwd(cwd, sizeof(cwd)) != NULL)
     {
-        // TODO add user
-        strcpy(myPrompt, "#######user ");
         strcat(myPrompt, cwd);
-        strcat(myPrompt, " >>>>>>>>>>> ");
-
-        printf("%s", myPrompt);
     }
-    else
-        perror("getcwd() error");
+    else{
+        perror("getcwd() error\n");
+    }
+    strcat(myPrompt, " >>");
+    printf("%s", myPrompt);
 }
-
-
 
 
 
@@ -44,10 +49,13 @@ static int
 parse_input_and_exec(char* input)
 {
     char* commands[MAX_NUM_OF_COMMANDS];
-    int n=1, first=1, last=0, ret_status, number_of_pipes, pid, returnStatus;
+    int n=1, first=1, last=0, len, ret_status, number_of_pipes, pid, returnStatus;
+
     int pipefds[MAX_NUMBER_OF_PIPES][2];
 
     /* parsing inpout */
+    len = strlen(input);
+    input[len -1]='\0';
     commands[0]=strtok(input,"|");
     while ((commands[n]=strtok(NULL,"|"))!=NULL)
         n++;
@@ -83,10 +91,12 @@ parse_input_and_exec(char* input)
         if (pid == 0){
             if (!first) 
             {
+                close(STDIN_FILENO);
                 dup2(pipefds[i-1][0],STDIN_FILENO);
             } 
             if (!last) 
             {
+                close(STDOUT_FILENO);
                 dup2(pipefds[i][1],STDOUT_FILENO);
             } 
             /* closing pipes  */
@@ -106,33 +116,31 @@ parse_input_and_exec(char* input)
             close(pipefds[i-1][1]);
         }
         waitpid(pid, &returnStatus, 0);  // Parent process waits here for child to terminate.
-        if (ret_status) {
-            exit(ret_status);
-        }
+
         if (first) first=0;
     }
 
-    return 1;
+    return ret_status;
 }
 
 int 
 main()
 {
-    int len , ret;
+    int ret;
     char input_buffer[ INPUT_BUFFER_SIZE ];
     char *ch = "\n";
     while(TRUE){
         prompt();
         fgets(input_buffer, sizeof(input_buffer), stdin);
+        //read(STDIN_FILENO, input_buffer, sizeof(input_buffer));
         if(strcmp(input_buffer, ch)==0)
         {
             continue;
         }
 
-        len = strlen(input_buffer);
-        input_buffer[len -1]='\0';
-        //TODO retun int
-        parse_input_and_exec(input_buffer);
+        ret = parse_input_and_exec(input_buffer);
+        /* if (ret) */
+        /*     printf("exit status %d\n",ret); */
     }
     return 0;
 }
