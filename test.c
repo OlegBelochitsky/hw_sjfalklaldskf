@@ -40,3 +40,11 @@ int main(int argc, char** argv)
         wait(0);
         return 0;
 }
+
+/* parent creates all needed pipes at the start */
+for( i = 0; i < num-pipes; i++ ){
+    if( pipe(pipefds + i*2) < 0 ){
+        perror and exit
+    }
+}
+
