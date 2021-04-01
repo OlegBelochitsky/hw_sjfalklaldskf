@@ -83,33 +83,29 @@ parse_input_and_exec(char* input)
         if (pid == 0){
             if (!first) 
             {
-                //dup2(pipefds[i-1][0],STDIN_FILENO);
+                dup2(pipefds[i-1][0],STDIN_FILENO);
             } 
-            else if (!last) 
+            if (!last) 
             {
-                //dup2(pipefds[i][1],STDOUT_FILENO);
+                dup2(pipefds[i][1],STDOUT_FILENO);
             } 
             /* closing pipes  */
             for(int i=0; i < number_of_pipes; i++ ){
                 close(pipefds[i][0]);
                 close(pipefds[i][1]);
             }
-
-            printf("writing to %d and reading from %d \n",pipefds[i][1], pipefds[i-1][0]);
-            exit(0);
             
-            /* if (execvp(args[0], args) > 0){ */
-            /*     perror("execvp failed"); */
-            /*     exit(1); */
-            /* } */
+            if (execvp(args[0], args) > 0){
+                exit(1);
+            }
         }
+
 
         if(i){
             close(pipefds[i-1][0]);
             close(pipefds[i-1][1]);
         }
         waitpid(pid, &returnStatus, 0);  // Parent process waits here for child to terminate.
-
         if (ret_status) {
             exit(ret_status);
         }
